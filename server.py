@@ -29,11 +29,17 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 if not firebase_admin._apps:
     firebase_creds_env = os.environ.get("FIREBASE_CREDENTIALS") or os.environ.get("FIREBASE_CONFIG")
     if firebase_creds_env:
-        # Load credentials directly from the environment variable (for Render/Cloud)
-        cred_dict = json.loads(firebase_creds_env)
-        cred = credentials.Certificate(cred_dict)
+        try:
+            cred_dict = json.loads(firebase_creds_env)
+            cred = credentials.Certificate(cred_dict)
+        except json.JSONDecodeError as e:
+            print("❌ ERROR: FIREBASE_CONFIG is present but invalid JSON! Did you accidentally enter 'FIREBASE_CONFIG {' at the start of the value?")
+            print(f"Error details: {e}")
+            raise
     else:
-        # Load from local file if the variable doesn't exist
+        if not os.path.exists("serviceAccountKey.json"):
+            print("❌ ERROR: FIREBASE_CONFIG environment variable is entirely MISSING in Render deployment! Did you save it?")
+            raise ValueError("Missing FIREBASE_CONFIG env variable and lacking serviceAccountKey.json locally.")
         cred = credentials.Certificate("serviceAccountKey.json")
         
     firebase_admin.initialize_app(cred, {
