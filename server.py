@@ -4,6 +4,7 @@ import uuid
 import base64
 import socket
 import requests
+import json
 import urllib3
 import tempfile
 from urllib.parse import urljoin
@@ -26,7 +27,15 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 # Initialize Firebase
 if not firebase_admin._apps:
-    cred = credentials.Certificate("serviceAccountKey.json")
+    firebase_creds_env = os.environ.get("FIREBASE_CREDENTIALS")
+    if firebase_creds_env:
+        # Load credentials directly from the environment variable (for Render/Cloud)
+        cred_dict = json.loads(firebase_creds_env)
+        cred = credentials.Certificate(cred_dict)
+    else:
+        # Load from local file if the variable doesn't exist
+        cred = credentials.Certificate("serviceAccountKey.json")
+        
     firebase_admin.initialize_app(cred, {
         'databaseURL': 'https://vtu-result-7-default-rtdb.firebaseio.com/'
     })
