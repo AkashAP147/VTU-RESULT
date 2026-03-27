@@ -27,7 +27,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 # Initialize Firebase
 if not firebase_admin._apps:
-    firebase_creds_env = os.environ.get("FIREBASE_CREDENTIALS")
+    firebase_creds_env = os.environ.get("FIREBASE_CREDENTIALS") or os.environ.get("FIREBASE_CONFIG")
     if firebase_creds_env:
         # Load credentials directly from the environment variable (for Render/Cloud)
         cred_dict = json.loads(firebase_creds_env)
