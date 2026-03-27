@@ -1,0 +1,11 @@
+Flask==3.0.3
+requests==2.31.0
+beautifulsoup4==4.12.3
+firebase-admin==6.5.0
+keras==3.4.1
+tensorflow==2.17.0
+opencv-python-headless==4.10.0.84
+Pillow==10.4.0
+numpy==1.26.4
+pytesseract==0.3.13
+gunicorn==22.0.0

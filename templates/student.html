@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VTU Student Results Dashboard</title>
+    <!-- Use a modern Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary-glow: #38bdf8;
+            --success-color: #22c55e;
+            --fail-color: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        /* Ambient animated background blobs */
+        .bg-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(100px);
+            z-index: -1;
+            opacity: 0.4;
+            animation: float 20s infinite ease-in-out alternate;
+        }
+        .blob-1 {
+            width: 40vw; height: 40vw;
+            background: #3b82f6; 
+            top: -10%; left: -10%;
+        }
+        .blob-2 {
+            width: 50vw; height: 50vw;
+            background: #8b5cf6;
+            bottom: -20%; right: -10%;
+            animation-delay: -5s;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(10%, 10%) scale(1.1); }
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.8s ease;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #60a5fa, #c084fc);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            width: 100%;
+            box-sizing: border-box;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        /* Search Section */
+        .search-container {
+            max-width: 600px;
+            margin: 0 auto 3rem auto;
+            display: flex;
+            gap: 1rem;
+            animation: fadeInUp 0.8s ease;
+            width: 100%;
+        }
+
+        .search-input {
+            flex: 1;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--glass-border);
+            border-radius: 1rem;
+            padding: 1rem 1.5rem;
+            color: #fff;
+            font-size: 1.1rem;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.3s ease;
+            min-width: 0;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary-glow);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+        }
+        
+        .search-input::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
+
+        .search-btn {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            border: none;
+            border-radius: 1rem;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+            font-family: inherit;
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6);
+        }
+
+        .search-btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Loader */
+        .loader {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-left-color: var(--primary-glow);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+        
+        /* Error Message */
+        .error-message {
+            display: none;
+            color: var(--fail-color);
+            margin-top: 1rem;
+            background: rgba(239, 68, 68, 0.1);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            text-align: center;
+            animation: pulseFade 0.5s ease;
+        }
+
+        /* Dashboard Section */
+        #dashboard {
+            display: none;
+            width: 100%;
+            animation: fadeIn 0.6s ease;
+        }
+
+        /* Profile details */
+        .profile-card {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .profile-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .profile-stat span {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .profile-stat strong {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        /* Semesters Grid */
+        .semesters-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .semester-card {
+            border-radius: 1rem;
+            overflow: hidden;
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid var(--glass-border);
+        }
+
+        .semester-header {
+            padding: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.03);
+            transition: background 0.3s ease;
+        }
+        
+        .semester-header:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .semester-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .semester-stats {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .semester-icon {
+            transition: transform 0.3s ease;
+        }
+        .semester-card.active .semester-icon {
+            transform: rotate(180deg);
+        }
+
+        .semester-body {
+            display: none;
+            padding: 0 1.5rem 1.5rem 1.5rem;
+        }
+
+        .semester-card.active .semester-body {
+            display: block;
+            animation: slideDown 0.4s ease;
+        }
+
+        /* Table */
+        .subjects-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .subjects-table th, .subjects-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .subjects-table th {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .subjects-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        
+        /* Mobile List View (replaces table on small screens) */
+        .mobile-subjects-list {
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .mobile-subject-card {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 0.8rem;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+        
+        .m-sub-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .m-sub-title { font-weight: 600; }
+        .m-sub-code { color: var(--text-muted); font-size: 0.85rem; margin-top:2px; }
+        
+        .m-marks-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            background: rgba(255,255,255,0.03);
+            border-radius: 0.5rem;
+            padding: 0.8rem;
+            text-align: center;
+        }
+        .m-mark-col span { display: block; font-size: 0.75rem; color: var(--text-muted); }
+        .m-mark-col strong { display: block; margin-top: 2px; }
+
+        /* Status badges */
+        .badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 2rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .badge.pass {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success-color);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .badge.fail {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--fail-color);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .badge.rv {
+            background: rgba(168, 85, 247, 0.15);
+            color: #c084fc;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+        
+        .badge.backlog {
+            background: rgba(234, 179, 8, 0.15);
+            color: #facc15;
+            border: 1px solid rgba(234, 179, 8, 0.3);
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulseFade { 0% { opacity: 0; transform: scale(0.95); } 100% { opacity: 1; transform: scale(1); } }
+
+        /* Media Queries */
+        @media (max-width: 768px) {
+            .search-container { flex-direction: column; }
+            .search-btn { width: 100%; padding: 1.2rem; }
+            .container { padding: 1rem; }
+            .glass-panel { padding: 1.5rem; }
+            h1 { font-size: 2rem; }
+            
+            .subjects-table { display: none; } /* Hide table on mobile */
+            .mobile-subjects-list { display: flex; } /* Show stacked cards on mobile */
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+
+    <div class="container">
+        <header>
+            <h1>VTU Result Portal</h1>
+            <p style="color: var(--text-muted);">Enter your University Seat Number</p>
+        </header>
+
+        <div class="search-container">
+            <input type="text" id="usn-input" class="search-input" placeholder="e.g. 1AY23CS001" autocomplete="off" onkeypress="if(event.key === 'Enter') fetchResults()">
+            <button class="search-btn" onclick="fetchResults()">Get Results</button>
+        </div>
+
+        <div class="loader" id="loader"></div>
+        <div class="error-message" id="error-msg"></div>
+
+        <div id="scrape-panel" class="glass-panel" style="display: none; max-width: 600px; margin-bottom: 2rem;">
+            <h3 style="margin-top:0; color:#cbd5e1;">Live Result Fetch</h3>
+            <p id="scrape-panel-desc" style="color:var(--text-muted); font-size:0.9rem;">You can manually fetch results directly from the VTU portal.</p>
+            
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <div style="flex: 1;">
+                    <label style="display:block; margin-bottom:0.5rem; font-size:0.85rem; color:var(--text-muted);">Semester</label>
+                    <select id="scrape-sem" class="search-input" style="padding: 0.8rem; width:100%; box-sizing: border-box;">
+                        <option value="">Select USN first</option>
+                    </select>
+                </div>
+                <div style="flex: 1;">
+                    <label style="display:block; margin-bottom:0.5rem; font-size:0.85rem; color:var(--text-muted);">Exam Type</label>
+                    <select id="scrape-type" class="search-input" onchange="updateAvailableSems()" style="padding: 0.8rem; width:100%; box-sizing: border-box;">
+                        <option value="regular">Regular</option>
+                        <option value="revaluation">Revaluation</option>
+                        <option value="makeup">Makeup</option>
+                    </select>
+                </div>
+            </div>
+            
+            <button onclick="initScrape()" class="search-btn" style="width: 100%; margin-top: 1.5rem; padding: 0.8rem;">Initialize Fetch</button>
+            
+            <div id="captcha-box" style="display:none; margin-top: 1.5rem; border-top: 1px solid var(--glass-border); padding-top: 1.5rem; text-align:center;">
+                <p style="margin-top:0; color:#cbd5e1; font-weight:500;">Enter Captcha to Continue</p>
+                <img id="captcha-img" src="" alt="Captcha" style="border-radius:0.5rem; margin-bottom:1rem; border:2px solid rgba(255,255,255,0.1); background:#fff;">
+                <input type="text" id="captcha-input" class="search-input" placeholder="Captcha Code" style="width: 150px; text-align:center; padding: 0.8rem; display:block; margin: 0 auto 1rem;" autocomplete="off" onkeypress="if(event.key === 'Enter') submitScrape()">
+                <button onclick="submitScrape()" class="search-btn" style="padding: 0.8rem 2rem;">Submit & Fetch</button>
+            </div>
+            
+            <input type="hidden" id="scrape-session-id" value="">
+        </div>
+
+        <div id="dashboard" class="glass-panel">
+            <div class="profile-card">
+                <div class="profile-stat">
+                    <span>Student Name</span>
+                    <strong id="st-name">--</strong>
+                </div>
+                <div class="profile-stat">
+                    <span>USN</span>
+                    <strong id="st-usn" style="text-transform: uppercase;">--</strong>
+                </div>
+                <div class="profile-stat">
+                    <span>Branch</span>
+                    <strong id="st-branch">--</strong>
+                </div>
+                <div class="profile-stat">
+                    <span>Batch</span>
+                    <strong id="st-batch">--</strong>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="margin: 0; color: #e2e8f0; font-weight: 500;">Academic Semesters</h3>
+                <button onclick="showScrapePanel()" class="search-btn" style="padding: 0.6rem 1.2rem; font-size: 0.9rem;">+ Fetch Missing Sem</button>
+            </div>
+            
+            <div class="semesters-container" id="semesters-list">
+                <!-- Semester cards will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('usn-input').focus();
+
+        async function fetchResults() {
+            const usn = document.getElementById('usn-input').value.trim();
+            if(!usn) return;
+
+            const loader = document.getElementById('loader');
+            const dash = document.getElementById('dashboard');
+            const errMsg = document.getElementById('error-msg');
+
+            // Reset UI
+            dash.style.display = 'none';
+            errMsg.style.display = 'none';
+            document.getElementById('scrape-panel').style.display = 'none';
+            loader.style.display = 'block';
+
+            try {
+                const response = await fetch(`/api/student/${usn}`);
+                const result = await response.json();
+
+                loader.style.display = 'none';
+
+                if(result.success && result.data) {
+                    renderDashboard(usn, result.data);
+                } else {
+                    if (response.status === 404) {
+                        document.getElementById('scrape-panel-desc').textContent = "USN not found in database. You can manually fetch it directly from the VTU portal.";
+                        document.getElementById('scrape-panel').style.display = 'block';
+                        document.getElementById('captcha-box').style.display = 'none';
+                        updateAvailableSems();
+                    } else {
+                        errMsg.textContent = result.message || "Unable to fetch data. Please check the USN.";
+                        errMsg.style.display = 'block';
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                loader.style.display = 'none';
+                errMsg.textContent = "A network error occurred. Ensure the server is running.";
+                errMsg.style.display = 'block';
+            }
+        }
+        
+        function showScrapePanel() {
+            const panel = document.getElementById('scrape-panel');
+            document.getElementById('scrape-panel-desc').textContent = "Fetch additional semesters directly from the VTU portal.";
+            panel.style.display = 'block';
+            document.getElementById('captcha-box').style.display = 'none';
+            panel.scrollIntoView({ behavior: 'smooth' });
+            updateAvailableSems();
+        }
+        
+        async function updateAvailableSems() {
+            const usn = document.getElementById('usn-input').value.trim();
+            const type = document.getElementById('scrape-type').value;
+            const semSelect = document.getElementById('scrape-sem');
+            if(!usn) return;
+            
+            semSelect.innerHTML = '<option value="">Loading...</option>';
+            try {
+                const response = await fetch(`/api/available_sems/${usn}?exam_type=${type}`);
+                const result = await response.json();
+                
+                if(result.success) {
+                    semSelect.innerHTML = '';
+                    if(result.semesters.length === 0) {
+                        semSelect.innerHTML = '<option value="">No links available</option>';
+                    } else {
+                        result.semesters.forEach(sem => {
+                            semSelect.innerHTML += `<option value="${sem}">${sem}</option>`;
+                        });
+                    }
+                } else {
+                    semSelect.innerHTML = `<option value="">${result.message || 'Invalid USN Format'}</option>`;
+                }
+            } catch (err) {
+                console.error(err);
+                semSelect.innerHTML = '<option value="">Error loading sems</option>';
+            }
+        }
+        
+        async function initScrape() {
+            const usn = document.getElementById('usn-input').value.trim();
+            const sem = document.getElementById('scrape-sem').value;
+            const type = document.getElementById('scrape-type').value;
+            const errMsg = document.getElementById('error-msg');
+            const loader = document.getElementById('loader');
+            
+            errMsg.style.display = 'none';
+            loader.style.display = 'block';
+            document.getElementById('captcha-box').style.display = 'none';
+            
+            // Show reassuring message during auto solve
+            errMsg.style.display = 'block';
+            errMsg.style.color = '#38bdf8';
+            errMsg.style.backgroundColor = 'rgba(56, 189, 248, 0.1)';
+            errMsg.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+            errMsg.textContent = "Solving Captcha and Fetching Results... Please wait.";
+            
+            try {
+                const response = await fetch('/api/scrape/auto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usn: usn, semester: sem, exam_type: type })
+                });
+                const result = await response.json();
+                loader.style.display = 'none';
+                
+                // Reset error message styling
+                errMsg.style.color = 'var(--fail-color)';
+                errMsg.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                errMsg.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                
+                if (result.success) {
+                    errMsg.style.display = 'none';
+                    document.getElementById('scrape-panel').style.display = 'none';
+                    fetchResults();
+                } else {
+                    errMsg.textContent = result.message || "Could not fetch results after multiple attempts.";
+                    errMsg.style.display = 'block';
+                }
+            } catch (err) {
+                console.error(err);
+                loader.style.display = 'none';
+                errMsg.style.color = 'var(--fail-color)';
+                errMsg.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                errMsg.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                errMsg.textContent = "Network error initializing fetch.";
+                errMsg.style.display = 'block';
+            }
+        }
+        
+        async function submitScrape() {
+            const usn = document.getElementById('usn-input').value.trim();
+            const sessionId = document.getElementById('scrape-session-id').value;
+            const captcha = document.getElementById('captcha-input').value.trim();
+            const errMsg = document.getElementById('error-msg');
+            const loader = document.getElementById('loader');
+            
+            if (!captcha) {
+                errMsg.textContent = "Please enter the captcha.";
+                errMsg.style.display = 'block';
+                return;
+            }
+            
+            errMsg.style.display = 'none';
+            loader.style.display = 'block';
+            document.getElementById('captcha-box').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/scrape/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usn: usn, session_id: sessionId, captcha_text: captcha })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Automatically refetch the student info from DB
+                    fetchResults();
+                } else {
+                    loader.style.display = 'none';
+                    if (result.message && result.message.toLowerCase().includes('invalid captcha')) {
+                        errMsg.textContent = result.message + " Initializing new captcha...";
+                        errMsg.style.display = 'block';
+                        // Re-initialize to get a new captcha
+                        setTimeout(() => initScrape(), 1000);
+                    } else {
+                        errMsg.textContent = result.message || "Scraping failed.";
+                        errMsg.style.display = 'block';
+                        document.getElementById('scrape-panel').style.display = 'none';
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                loader.style.display = 'none';
+                errMsg.textContent = "Network error during fetch.";
+                errMsg.style.display = 'block';
+            }
+        }
+
+        function determineResultBadge(resultText) {
+            const raw = (resultText || '').toLowerCase();
+            if(raw === 'p' || raw === 'pass') return `<span class="badge pass">PASS</span>`;
+            if(raw === 'f' || raw === 'fail') return `<span class="badge fail">FAIL</span>`;
+            if(raw === 'a' || raw === 'absent') return `<span class="badge fail">ABSENT</span>`;
+            return `<span class="badge" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);">${resultText || '-'}</span>`;
+        }
+
+        function renderDashboard(usn, data) {
+            // Fill Profile
+            document.getElementById('st-name').textContent = data.name || '--';
+            document.getElementById('st-usn').textContent = usn;
+            document.getElementById('st-branch').textContent = data.branch || data.branch_code || '--';
+            document.getElementById('st-batch').textContent = data.batch || '--';
+
+            const sContainer = document.getElementById('semesters-list');
+            sContainer.innerHTML = '';
+
+            const sems = data.semesters || {};
+            // Sort semesters descending so latest is on top
+            const semKeys = Object.keys(sems).sort((a,b) => parseInt(b) - parseInt(a));
+
+            if(semKeys.length === 0) {
+                sContainer.innerHTML = '<p style="color:var(--text-muted);text-align:center;">No semester records found.</p>';
+            }
+
+            semKeys.forEach((sem, index) => {
+                const subjs = sems[sem];
+                
+                // Skip if there's no data for this semester (e.g., the 0th index which is null)
+                if (!subjs) return;
+                
+                // Group attempts. We will find the latest attempt for each subject to display cleanly.
+                // A better approach is to render the most recent attempt or summarize
+                let tbodyRows = '';
+                let mobileRows = '';
+                
+                // Iterate over subjects in semester
+                Object.keys(subjs).forEach(subCode => {
+                    const subjData = subjs[subCode];
+                    // 'attempts' object holds the specific exams taken
+                    const attempts = subjData.attempts || {};
+                    // Pick the latest attempt by sorting keys descending
+                    const attKeys = Object.keys(attempts).sort().reverse();
+                    
+                    if(attKeys.length > 0) {
+                        const latestKey = attKeys[0];
+                        const att = attempts[latestKey];
+                        
+                        let tags = '';
+                        if(att.is_revaluation || att.exam_type === 'revaluation') tags += `<span class="badge rv" style="margin-left:8px; font-size:0.7rem; padding:0.2rem 0.5rem">RV</span>`;
+                        if(att.is_backlog_attempt) tags += `<span class="badge backlog" style="margin-left:8px; font-size:0.7rem; padding:0.2rem 0.5rem">BACKLOG</span>`;
+                        
+                        // Normal or Reval Result
+                        const fResult = att.final_result || att.result || '';
+                        const resBadge = determineResultBadge(fResult);
+
+                        const internal = att.internal || '-';
+                        const external = att.final_marks || att.external || '-'; 
+                        const total = (att.final_marks || att.total) ? (parseInt(internal !== '-' ? internal : 0) + parseInt(external !== '-' ? external : 0)) : '-';
+                        const overTotal = att.total || total; // fallback calculation
+
+                        tbodyRows += `
+                            <tr>
+                                <td style="color:#e2e8f0; font-family:monospace;">${subCode}</td>
+                                <td style="max-width:250px;">
+                                    <div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${att.subject_name}">${att.subject_name}</div>
+                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">${att.exam_name || ''} ${tags}</div>
+                                </td>
+                                <td>${internal}</td>
+                                <td>${external}</td>
+                                <td><strong>${overTotal}</strong></td>
+                                <td>${resBadge}</td>
+                            </tr>
+                        `;
+                        
+                        // Mobile specific List View Card
+                        mobileRows += `
+                            <div class="mobile-subject-card">
+                                <div class="m-sub-header">
+                                    <div>
+                                        <div class="m-sub-title">${att.subject_name}</div>
+                                        <div class="m-sub-code">${subCode} ${tags}</div>
+                                    </div>
+                                    <div>${resBadge}</div>
+                                </div>
+                                <div class="m-marks-grid">
+                                    <div class="m-mark-col"><span>INT</span><strong>${internal}</strong></div>
+                                    <div class="m-mark-col"><span>EXT</span><strong>${external}</strong></div>
+                                    <div class="m-mark-col"><span>TOTAL</span><strong>${overTotal}</strong></div>
+                                </div>
+                            </div>
+                        `;
+                    } else if (subjData.final_result || subjData.result) {
+                        // Fallback in case there are no attempts but top level data exists (legacy data perhaps)
+                        const fResult = subjData.final_result || subjData.result || '';
+                        const resBadge = determineResultBadge(fResult);
+                        tbodyRows += `
+                            <tr>
+                                <td>${subCode}</td>
+                                <td colspan="4" style="color:var(--text-muted);"><i>Data format legacy</i></td>
+                                <td>${resBadge}</td>
+                            </tr>
+                        `;
+                    }
+                });
+
+                // Build Card
+                // Use the first card as active/open by default
+                const isActiveClass = index === 0 ? 'active' : '';
+                
+                const cardHTML = `
+                    <div class="semester-card ${isActiveClass}">
+                        <div class="semester-header" onclick="this.parentElement.classList.toggle('active')">
+                            <div class="semester-title">Semester ${sem}</div>
+                            <div class="semester-stats">
+                                <!-- Add simple visual indicator -->
+                                <svg class="semester-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="semester-body">
+                            <!-- Desktop Table Form -->
+                            <table class="subjects-table">
+                                <thead>
+                                    <tr>
+                                        <th>Code</th>
+                                        <th>Subject Name</th>
+                                        <th>IA</th>
+                                        <th>EA</th>
+                                        <th>Total</th>
+                                        <th>Result</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${tbodyRows || '<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">No subject attempts available.</td></tr>'}
+                                </tbody>
+                            </table>
+                            
+                            <!-- Mobile Stack Form -->
+                            <div class="mobile-subjects-list">
+                                ${mobileRows || '<div style="text-align:center; color:var(--text-muted);">No subject attempts available.</div>'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                sContainer.insertAdjacentHTML('beforeend', cardHTML);
+            });
+
+            // Show Dashboard
+            document.getElementById('dashboard').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

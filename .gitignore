@@ -1,0 +1,17 @@
+# Ignore service account key (CRITICAL SECURITY)
+serviceAccountKey.json
+
+# Ignore python caches and temp files
+__pycache__/
+*.pyc
+captcha_bypass/temp/
+*.png
+
+# Ignore virtual environment if any
+venv/
+env/
+.env
+
+# Ignored OS files
+.DS_Store
+Thumbs.db
