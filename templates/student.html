@@ -428,7 +428,7 @@
 
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <h3 style="margin: 0; color: #e2e8f0; font-weight: 500;">Academic Semesters</h3>
-                <button onclick="showScrapePanel()" class="search-btn" style="padding: 0.6rem 1.2rem; font-size: 0.9rem;">+ Fetch Missing Sem</button>
+                <button onclick="showScrapePanel()" class="search-btn" style="padding: 0.6rem 1.2rem; font-size: 0.9rem;">+ Other Sem Result</button>
             </div>
             
             <div class="semesters-container" id="semesters-list">
@@ -530,15 +530,8 @@
             loader.style.display = 'block';
             document.getElementById('captcha-box').style.display = 'none';
             
-            // Show reassuring message during auto solve
-            errMsg.style.display = 'block';
-            errMsg.style.color = '#38bdf8';
-            errMsg.style.backgroundColor = 'rgba(56, 189, 248, 0.1)';
-            errMsg.style.borderColor = 'rgba(56, 189, 248, 0.3)';
-            errMsg.textContent = "Solving Captcha and Fetching Results... Please wait.";
-            
             try {
-                const response = await fetch('/api/scrape/auto', {
+                const response = await fetch('/api/scrape/init', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ usn: usn, semester: sem, exam_type: type })
@@ -546,17 +539,14 @@
                 const result = await response.json();
                 loader.style.display = 'none';
                 
-                // Reset error message styling
-                errMsg.style.color = 'var(--fail-color)';
-                errMsg.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
-                errMsg.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                
                 if (result.success) {
-                    errMsg.style.display = 'none';
-                    document.getElementById('scrape-panel').style.display = 'none';
-                    fetchResults();
+                    document.getElementById('scrape-session-id').value = result.session_id;
+                    document.getElementById('captcha-img').src = result.captcha_b64;
+                    document.getElementById('captcha-input').value = '';
+                    document.getElementById('captcha-box').style.display = 'block';
+                    document.getElementById('captcha-input').focus();
                 } else {
-                    errMsg.textContent = result.message || "Could not fetch results after multiple attempts.";
+                    errMsg.textContent = result.message || "Failed to initialize scrape. Please try again.";
                     errMsg.style.display = 'block';
                 }
             } catch (err) {

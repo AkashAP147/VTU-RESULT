@@ -12,7 +12,6 @@ from bs4 import BeautifulSoup
 from flask import Flask, render_template, jsonify, request
 import firebase_admin
 from firebase_admin import credentials, db
-from captcha_bypass import CaptchaSolver
 
 # Suppress InsecureRequestWarning for VTU SSL issues
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -46,14 +45,6 @@ if not firebase_admin._apps:
         'databaseURL': 'https://vtu-result-7-default-rtdb.firebaseio.com/'
     })
 
-# Initialize Captcha Solver
-try:
-    print("⏳ Initializing Captcha Solver...")
-    captcha_solver = CaptchaSolver()
-    print("✅ Captcha Solver initialized successfully!")
-except Exception as e:
-    captcha_solver = None
-    print(f"❌ Failed to initialize Captcha Solver: {e}")
 
 # ===============================
 # VTU RESULT URLS (BATCH-WISE)
@@ -510,113 +501,7 @@ def submit_scrape():
             del CRAWL_SESSIONS[session_id]
         return jsonify({"success": False, "message": f"Error scraping: {str(e)}"}), 500
 
-@app.route('/api/scrape/auto', methods=['POST'])
-def auto_scrape():
-    if not captcha_solver:
-        return jsonify({"success": False, "message": "Captcha solver not initialized on backend."}), 500
 
-    data = request.json or {}
-    usn = data.get('usn', '').strip().upper()
-    semester = data.get('semester', '').strip()
-    exam_type = data.get('exam_type', 'regular')
-    
-    if not usn or not semester:
-        return jsonify({"success": False, "message": "USN and semester are required."}), 400
-        
-    try:
-        batch_year, _, _ = parse_usn(usn)
-    except Exception:
-        return jsonify({"success": False, "message": "Invalid USN Format."}), 400
-        
-    url_dict = BATCH_SEM_URLS
-    if exam_type == 'revaluation':
-        url_dict = BATCH_SEM_REVAL_URLS
-    elif exam_type == 'makeup':
-        url_dict = BATCH_SEM_MAKEUP_URLS
-        
-    available_sems = url_dict.get(batch_year, {})
-    if semester not in available_sems:
-        return jsonify({"success": False, "message": f"Results for Sem {semester} not available in {exam_type} (Batch {batch_year})."}), 404
-        
-    vtu_url = available_sems[semester]
-    
-    max_retries = 12
-    for attempt_num in range(1, max_retries + 1):
-        sess = requests.Session()
-        sess.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36"})
-        
-        try:
-            res = sess.get(vtu_url, timeout=10, verify=False)
-            soup = BeautifulSoup(res.text, 'html.parser')
-            
-            if res.status_code != 200:
-                return jsonify({"success": False, "message": f"VTU site returned status {res.status_code}"}), 500
-                
-            token_input = soup.find('input', {'name': 'Token'})
-            token = token_input.get('value', '') if token_input else ""
-                
-            form = soup.find('form')
-            if form and form.get('action'):
-                submit_url = urljoin(vtu_url, form.get('action'))
-            else:
-                submit_url = urljoin(vtu_url, 'resultpage.php')
-                
-            img_tag = soup.find('img', src=re.compile(r'captcha', re.I))
-            if not img_tag:
-                return jsonify({"success": False, "message": "Could not find Captcha image on VTU page."}), 500
-                
-            captcha_url = urljoin(vtu_url, img_tag['src'])
-            img_res = sess.get(captcha_url, timeout=10, verify=False)
-            
-            # Save to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_img:
-                temp_img.write(img_res.content)
-                temp_img_path = temp_img.name
-                
-            # Solve with our imported module
-            captcha_text = captcha_solver.solve_from_image(temp_img_path)
-            os.remove(temp_img_path)
-            
-            # Simple length check to rule out badly extracted strings
-            if not captcha_text or len(captcha_text) != 6:
-                print(f"Attempt {attempt_num}: Model generated '{captcha_text}', retrying...")
-                continue
-                
-            payload = {
-                "Token": token,
-                "lns": usn,
-                "captchacode": captcha_text
-            }
-            
-            post_res = sess.post(submit_url, data=payload, timeout=15, verify=False)
-            html = post_res.text
-            
-            if "Invalid captcha" in html.lower() or "invalid code" in html.lower() or "alert('invalid captcha code" in html.lower() or "alert(\"invalid captcha code" in html.lower() or "invalid image code" in html.lower():
-                print(f"Attempt {attempt_num}: VTU rejected guess '{captcha_text}'")
-                continue
-                
-            if "University Seat Number is not available or Invalid" in html or "alert('invalid" in html.lower():
-                return jsonify({"success": False, "message": "USN not available or Invalid on VTU server."}), 404
-                
-            if "University Seat Number" not in html:
-                return jsonify({"success": False, "message": "Extraction failed. Unexpected page content."}), 500
-                
-            result_data = extract_result(html, semester)
-            if not result_data:
-                return jsonify({"success": False, "message": "Could not parse result data from HTML."}), 500
-                
-            save_to_firebase(result_data)
-            return jsonify({"success": True, "message": f"Scraped automatically successfully after {attempt_num} attempts!"}), 200
-            
-        except requests.exceptions.Timeout:
-            print(f"Attempt {attempt_num}: Request timed out, retrying...")
-            continue
-        except Exception as e:
-            print(f"Attempt {attempt_num} Error: {e}")
-            if attempt_num == max_retries:
-                return jsonify({"success": False, "message": f"Error scraping: {str(e)}"}), 500
-                
-    return jsonify({"success": False, "message": f"Failed to bypass Captcha after {max_retries} attempts."}), 400
 
 def find_free_port(start_port=5000, max_tries=20):
     port = start_port
